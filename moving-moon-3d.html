@@ -1,1 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D Moving Moon</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root { --size: clamp(120px, 28vmin, 210px); }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: linear-gradient(#02030a 0%, #0a1030 55%, #1b2a5c 85%, #3a3f78 100%);
+  }
+
+  /* ---------- Stars (two parallax layers) ---------- */
+  .stars, .stars2 {
+    position: absolute;
+    inset: 0;
+    background-repeat: repeat;
+  }
+  .stars {
+    background-image:
+      radial-gradient(1px 1px at 20px 30px, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 90px 120px, #fff, transparent),
+      radial-gradient(1px 1px at 160px 60px, #fff, transparent),
+      radial-gradient(2px 2px at 220px 180px, #cfe0ff, transparent);
+    background-size: 250px 250px;
+    animation: twinkle 4s ease-in-out infinite alternate, drift 120s linear infinite;
+  }
+  .stars2 {
+    background-image:
+      radial-gradient(1px 1px at 60px 90px, #fff, transparent),
+      radial-gradient(1px 1px at 140px 20px, #ffe9c4, transparent),
+      radial-gradient(1.5px 1.5px at 200px 150px, #fff, transparent);
+    background-size: 180px 180px;
+    animation: twinkle 6s ease-in-out infinite alternate-reverse, drift 200s linear infinite;
+  }
+  @keyframes twinkle { from { opacity: .45; } to { opacity: 1; } }
+  @keyframes drift   { to { background-position: -500px 0; } }
+
+  /* ---------- Camera ---------- */
+  .scene {
+    position: absolute;
+    inset: 0;
+    perspective: 1000px;
+    perspective-origin: 50% 50%;
+    transform-style: preserve-3d;
+  }
+
+  /* Start (A) and end (B) markers */
+  .marker {
+    position: absolute;
+    top: calc(50% + 19.5vh);
+    width: 14px; height: 14px;
+    margin: -7px 0 0 -7px;
+    border: 2px solid rgba(255,255,255,.7);
+    border-radius: 50%;
+    box-shadow: 0 0 12px rgba(255,255,255,.5);
+  }
+  .marker span {
+    position: absolute;
+    top: 20px; left: 50%;
+    transform: translateX(-50%);
+    font: 600 12px/1 system-ui, sans-serif;
+    letter-spacing: .1em;
+    color: rgba(255,255,255,.75);
+    white-space: nowrap;
+  }
+  .marker.a { left: calc(50% - 39vw); }
+  .marker.b { left: calc(50% + 39vw); }
+
+  /* ---------- Moon movement: three nested wrappers ---------- */
+  .travel-x, .travel-y, .travel-z {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 0; height: 0;
+    transform-style: preserve-3d;
+  }
+  /* left -> right */
+  .travel-x { animation: moveX 14s ease-in-out infinite alternate; }
+  /* up and over in an arc */
+  .travel-y { animation: moveY 14s infinite alternate; }
+  /* nearer (bigger) at the horizon, farther at the top of the arc */
+  .travel-z { animation: moveZ 14s infinite alternate; }
+
+  @keyframes moveX {
+    from { transform: translateX(-36vw); }
+    to   { transform: translateX(36vw); }
+  }
+  @keyframes moveY {
+    0%   { transform: translateY(18vh);  animation-timing-function: cubic-bezier(.2,.6,.4,1); }
+    50%  { transform: translateY(-16vh); animation-timing-function: cubic-bezier(.6,0,.8,.4); }
+    100% { transform: translateY(18vh); }
+  }
+  @keyframes moveZ {
+    0%   { transform: translateZ(80px);   animation-timing-function: ease-in-out; }
+    50%  { transform: translateZ(-220px); animation-timing-function: ease-in-out; }
+    100% { transform: translateZ(80px); }
+  }
+
+  /* ---------- Moon ---------- */
+  .moon {
+    position: absolute;
+    width: var(--size); height: var(--size);
+    left: calc(var(--size) / -2);
+    top: calc(var(--size) / -2);
+    border-radius: 50%;
+    overflow: hidden;
+    background: radial-gradient(circle at 35% 30%, #fffef5 0%, #e8e3d0 40%, #a9a493 100%);
+    box-shadow: 0 0 60px 10px rgba(255,245,210,.35), 0 0 160px 40px rgba(180,200,255,.18);
+  }
+
+  /* Surface texture slides sideways = the moon rotating */
+  .surface {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 18% 32%, rgba(70,70,80,.35) 0 7%, transparent 8%),
+      radial-gradient(circle at 42% 60%, rgba(70,70,80,.30) 0 10%, transparent 11%),
+      radial-gradient(circle at 66% 28%, rgba(70,70,80,.32) 0 6%, transparent 7%),
+      radial-gradient(circle at 82% 66%, rgba(70,70,80,.30) 0 8%, transparent 9%),
+      radial-gradient(circle at 30% 82%, rgba(70,70,80,.28) 0 5%, transparent 6%),
+      radial-gradient(ellipse at 52% 40%, rgba(90,90,105,.35), transparent 38%),
+      radial-gradient(ellipse at 15% 70%, rgba(90,90,105,.25), transparent 30%);
+    background-size: 150% 100%;
+    background-repeat: repeat-x;
+    animation: rotate 40s linear infinite;
+  }
+  @keyframes rotate { to { background-position: -150% 0; } }
+
+  /* Rounds the flat texture into a sphere */
+  .shade {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, transparent 0 30%, rgba(0,0,0,.55) 100%);
+  }
+
+  /* Phase: the dark side sweeps across as the moon travels */
+  .phase {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    box-shadow: inset 60px 0 60px 10px rgba(4,6,22,.92);
+    animation: phase 14s ease-in-out infinite alternate;
+  }
+  @keyframes phase {
+    from { box-shadow: inset 70px 0 60px 12px rgba(4,6,22,.92); }
+    to   { box-shadow: inset -70px 0 60px 12px rgba(4,6,22,.92); }
+  }
+
+  /* ---------- Horizon ---------- */
+  .hills {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 22vh;
+    background: #05060f;
+    clip-path: polygon(0 60%, 10% 40%, 22% 55%, 35% 30%, 50% 52%, 63% 28%, 78% 50%, 90% 34%, 100% 52%, 100% 100%, 0 100%);
+  }
+</style>
+</head>
+<body>
+  <div class="stars"></div>
+  <div class="stars2"></div>
+
+  <div class="scene">
+    <div class="marker a"><span>POINT A</span></div>
+    <div class="marker b"><span>POINT B</span></div>
+
+    <div class="travel-x">
+      <div class="travel-y">
+        <div class="travel-z">
+          <div class="moon">
+            <div class="surface"></div>
+            <div class="shade"></div>
+            <div class="phase"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hills"></div>
+</body>
+</html>
 
